@@ -16,7 +16,7 @@ export const DashboardLayout = ({ children, pageTitle }: DashboardLayoutProps) =
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
-      <aside className="w-[280px] bg-[#FAFCFE] p-6 flex flex-col border-r border-[#F0F0F0] min-h-screen">
+      <aside className="w-[280px] bg-[#FAFCFE] p-6 flex flex-col border-r border-[#F0F0F0] min-h-screen sticky top-0 h-screen">
         <div className="flex items-center gap-3.5 mb-12">
           <img className="w-10 h-10" alt="SMEase Logo" src="/image-1.png" />
           <span className="text-2xl font-bold">SMEase</span>

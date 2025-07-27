@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { DashboardLayout } from "./Dashboard/DashboardLayout";
 import { employees, Employee } from "../lib/employees";
 
@@ -43,7 +43,31 @@ const totalPayroll = payrollRows.reduce((sum, row) => sum + row.gross, 0);
 const totalTax = payrollRows.reduce((sum, row) => sum + row.taxes, 0);
 const pendingPayslips = payrollRows.filter(row => row.status !== 'Present').length;
 
+const allRoles = Array.from(new Set(employees.map(e => e.role)));
+const allStatuses = ["Present", "Pending", "Not Finalized"];
+
+type PayslipRow = ReturnType<typeof calculatePayroll> & { bonus?: number };
+
 export const PayrollDistribution = () => {
+  const [modalPayslip, setModalPayslip] = useState<PayslipRow | null>(null);
+  const [showPendingModal, setShowPendingModal] = useState(false);
+  const [editPayslip, setEditPayslip] = useState<PayslipRow | null>(null);
+  const [bonusInput, setBonusInput] = useState(0);
+  const [payroll, setPayroll] = useState<PayslipRow[]>(payrollRows);
+  const [roleFilter, setRoleFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+
+  // Filtering logic
+  const filteredPayroll = payroll.filter(row => {
+    let pass = true;
+    if (roleFilter && row.role !== roleFilter) pass = false;
+    if (statusFilter && row.status !== statusFilter) pass = false;
+    // Date filtering is a placeholder, as there is no date in row. Add logic if date is available.
+    return pass;
+  });
+
   return (
     <DashboardLayout pageTitle="Employee Payroll">
       {/* Summary Cards */}
@@ -68,24 +92,23 @@ export const PayrollDistribution = () => {
             <div className="text-xs text-gray-500 mb-1">Pending Payslips</div>
             <div className="text-3xl font-bold">{pendingPayslips}</div>
           </div>
-          <button className="mt-2 text-xs text-blue-600 flex items-center gap-1">See payslips <span>→</span></button>
+          <button className="mt-2 text-xs text-blue-600 flex items-center gap-1" onClick={() => setShowPendingModal(true)}>See payslips <span>→</span></button>
         </div>
       </div>
       {/* Filter Bar */}
       <div className="flex items-center gap-3 mb-4">
-        <select className="border rounded px-3 py-2 text-sm text-gray-700">
-          <option>Role</option>
+        <select className="border rounded px-3 py-2 text-sm text-gray-700" value={roleFilter} onChange={e => setRoleFilter(e.target.value)}>
+          <option value="">All Roles</option>
+          {allRoles.map(role => <option key={role} value={role}>{role}</option>)}
         </select>
-        <select className="border rounded px-3 py-2 text-sm text-gray-700">
-          <option>Status</option>
-        </select>
-        <select className="border rounded px-3 py-2 text-sm text-gray-700">
-          <option>Last 7 Days</option>
+        <select className="border rounded px-3 py-2 text-sm text-gray-700" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+          <option value="">All Statuses</option>
+          {allStatuses.map(status => <option key={status} value={status}>{status}</option>)}
         </select>
         <div className="flex items-center gap-2">
-          <input type="date" className="border rounded px-2 py-2 text-sm" />
+          <input type="date" className="border rounded px-2 py-2 text-sm" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
           <span className="text-gray-400">-</span>
-          <input type="date" className="border rounded px-2 py-2 text-sm" />
+          <input type="date" className="border rounded px-2 py-2 text-sm" value={dateTo} onChange={e => setDateTo(e.target.value)} />
         </div>
         <button className="ml-auto bg-blue-50 text-blue-700 px-4 py-2 rounded flex items-center gap-2 border border-blue-200">
           Export CSV/PDF <span>⇩</span>
@@ -107,7 +130,7 @@ export const PayrollDistribution = () => {
             </tr>
           </thead>
           <tbody>
-            {payrollRows.map((row, i) => (
+            {filteredPayroll.map((row, i) => (
               <tr key={i} className="border-b hover:bg-gray-50">
                 <td className="px-6 py-3">{row.name}</td>
                 <td className="px-6 py-3">{row.role}</td>
@@ -119,14 +142,144 @@ export const PayrollDistribution = () => {
                   <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${row.status === 'Present' ? 'bg-green-100 text-green-700' : row.status === 'Pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>{row.status}</span>
                 </td>
                 <td className="px-6 py-3">
-                  <button className="bg-gray-100 text-gray-700 px-3 py-1 rounded mr-2">Edit</button>
-                  <button className="bg-blue-100 text-blue-700 px-3 py-1 rounded">View Payslip</button>
+                  <button className="bg-gray-100 text-gray-700 px-3 py-1 rounded mr-2" onClick={() => { setEditPayslip(row); setBonusInput(row.bonus || 0); }}>Edit</button>
+                  <button className="bg-blue-100 text-blue-700 px-3 py-1 rounded" onClick={() => setModalPayslip(row)}>View Payslip</button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      {/* Payslip Modal */}
+      {modalPayslip && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-8 w-[400px] max-w-full relative">
+            <button className="absolute top-2 right-2 text-gray-500" onClick={() => setModalPayslip(null)}>✕</button>
+            <h2 className="text-2xl font-bold mb-4 text-center text-blue-700">Pay Slip</h2>
+            <div className="mb-4 border-b pb-4">
+              <div className="flex justify-between mb-2">
+                <span className="font-semibold">Name:</span>
+                <span>{modalPayslip.name}</span>
+              </div>
+              <div className="flex justify-between mb-2">
+                <span className="font-semibold">Role:</span>
+                <span>{modalPayslip.role}</span>
+              </div>
+              <div className="flex justify-between mb-2">
+                <span className="font-semibold">Hours Worked:</span>
+                <span>{modalPayslip.hours} hrs</span>
+              </div>
+            </div>
+            <div className="mb-4">
+              <div className="flex justify-between mb-2">
+                <span>Gross Pay:</span>
+                <span className="font-mono">${modalPayslip.gross}</span>
+              </div>
+              <div className="flex justify-between mb-2">
+                <span>Taxes:</span>
+                <span className="font-mono">${modalPayslip.taxes}</span>
+              </div>
+              <div className="flex justify-between mb-2">
+                <span>Net Pay:</span>
+                <span className="font-mono font-bold text-green-700">${modalPayslip.net}</span>
+              </div>
+              <div className="flex justify-between mb-2">
+                <span>Status:</span>
+                <span>{modalPayslip.status}</span>
+              </div>
+            </div>
+            <button
+              className="w-full bg-blue-600 text-white py-2 rounded mt-4 hover:bg-blue-700 transition"
+              onClick={() => alert(`Payslip emailed to ${modalPayslip.name}`)}
+            >
+              Email Payslip
+            </button>
+          </div>
+        </div>
+      )}
+      {/* Pending Payslips Modal */}
+      {showPendingModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-[500px] max-w-full relative">
+            <button className="absolute top-2 right-2 text-gray-500" onClick={() => setShowPendingModal(false)}>✕</button>
+            <h2 className="text-xl font-bold mb-4 text-blue-700">Pending Payslips</h2>
+            <div className="overflow-y-auto max-h-96">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="border-b text-gray-500">
+                    <th className="px-4 py-2 text-left">Name</th>
+                    <th className="px-4 py-2 text-left">Role</th>
+                    <th className="px-4 py-2 text-left">Status</th>
+                    <th className="px-4 py-2 text-left">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {payrollRows.filter(row => row.status !== 'Present').map((row, i) => (
+                    <tr key={i} className="border-b hover:bg-gray-50">
+                      <td className="px-4 py-2">{row.name}</td>
+                      <td className="px-4 py-2">{row.role}</td>
+                      <td className="px-4 py-2">{row.status}</td>
+                      <td className="px-4 py-2">
+                        <button className="bg-blue-100 text-blue-700 px-3 py-1 rounded" onClick={() => { setModalPayslip(row); setShowPendingModal(false); }}>View Payslip</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Edit Payslip Modal */}
+      {editPayslip && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-8 w-[400px] max-w-full relative">
+            <button className="absolute top-2 right-2 text-gray-500" onClick={() => setEditPayslip(null)}>✕</button>
+            <h2 className="text-2xl font-bold mb-4 text-center text-blue-700">Edit Payslip</h2>
+            <div className="mb-4 border-b pb-4">
+              <div className="flex justify-between mb-2">
+                <span className="font-semibold">Name:</span>
+                <span>{editPayslip.name}</span>
+              </div>
+              <div className="flex justify-between mb-2">
+                <span className="font-semibold">Role:</span>
+                <span>{editPayslip.role}</span>
+              </div>
+            </div>
+            <div className="mb-4">
+              <div className="flex justify-between mb-2">
+                <span>Gross Pay:</span>
+                <span className="font-mono">${editPayslip.gross}</span>
+              </div>
+              <div className="flex justify-between mb-2">
+                <span>Taxes:</span>
+                <span className="font-mono">${editPayslip.taxes}</span>
+              </div>
+              <div className="flex justify-between mb-2">
+                <span>Net Pay:</span>
+                <span className="font-mono font-bold text-green-700">${editPayslip.net + bonusInput}</span>
+              </div>
+              <div className="flex justify-between mb-2">
+                <span>Status:</span>
+                <span>{editPayslip.status}</span>
+              </div>
+              <div className="flex justify-between mb-2">
+                <span>Bonus:</span>
+                <input type="number" className="border rounded px-2 py-1 w-24" value={bonusInput} onChange={e => setBonusInput(Number(e.target.value))} />
+              </div>
+            </div>
+            <button
+              className="w-full bg-blue-600 text-white py-2 rounded mt-4 hover:bg-blue-700 transition"
+              onClick={() => {
+                setPayroll(payroll.map(row => row === editPayslip ? { ...row, bonus: bonusInput, net: row.net + (bonusInput - (editPayslip.bonus || 0)) } : row));
+                setEditPayslip(null);
+              }}
+            >
+              Save Changes
+            </button>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 };

@@ -98,7 +98,8 @@ export const LegalDocumentation = () => {
   // Download all generated PDFs as a zip
   const handleDownloadZip = async () => {
     const zip = new JSZip();
-    const toGenerate = employees.filter(e => selected.includes(e.id) && statusMap[e.id] === "Ready for Download");
+    // Get all employees whose status is 'Ready for Download', regardless of selection
+    const toGenerate = employees.filter(e => statusMap[e.id] === "Ready for Download");
     await Promise.all(toGenerate.map(async (emp) => {
       const doc = <TaxDocPDF employee={emp} period={payPeriod} payroll={calculatePayroll(emp)} />;
       const blob = await pdf(doc).toBlob();
@@ -155,10 +156,11 @@ export const LegalDocumentation = () => {
         </button>
         <button
           className="bg-blue-50 text-blue-700 px-4 py-2 rounded border border-blue-200"
-          disabled={selected.length === 0 || !selected.some(id => statusMap[id] === "Ready for Download")}
+          // Enable if there is at least one ready document
+          disabled={!Object.values(statusMap).some(status => status === "Ready for Download")}
           onClick={handleDownloadZip}
         >
-          Download All as ZIP
+          Download All Ready Documents as ZIP
         </button>
       </div>
       <div className="bg-white rounded-lg shadow border overflow-x-auto">
